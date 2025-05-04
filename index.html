@@ -75,10 +75,12 @@
       border-radius: 8px;
     }
 
-    .popup-content input, .popup-content select {
+    .popup-content input,
+    .popup-content select {
       width: 100%;
       padding: 10px;
-      margin: 5px 0;
+      margin: 10px 0;
+      box-sizing: border-box;
     }
 
     h3 {
@@ -119,6 +121,7 @@
       <button onclick="closePopup('taskPopup')">Cancel</button>
     </div>
   </div>
+
   <!-- Other Popups -->
   <div id="plannerPopup" class="popup">
     <div class="popup-content">
@@ -138,6 +141,8 @@
   </div>
 
   <script>
+    let showArchive = false;
+
     function showContent(section) {
       const content = document.getElementById('content');
       if (section === 'todo') {
@@ -153,9 +158,19 @@
           <h2>Planner Tools</h2>
           <button onclick="showPlannerPopup()">Daily Planner</button>
         `;
+      } else if (section === 'settings') {
+        content.innerHTML = `
+          <h2>Settings</h2>
+          <button onclick="toggleArchive()">View ${showArchive ? 'Active Tasks' : 'Archive'}</button>
+        `;
       } else {
         content.innerHTML = '<h2>' + section.toUpperCase() + '</h2><p>This is the ' + section + ' section.</p>';
       }
+    }
+
+    function toggleArchive() {
+      showArchive = !showArchive;
+      showContent('todo');
     }
 
     function openPopup(id) {
@@ -173,7 +188,8 @@
       const newIdentity = document.getElementById('newIdentity').value.trim();
       if (!text) return;
 
-      const date = new Date().toLocaleDateString('en-US', {
+      const now = new Date();
+      const date = now.toLocaleDateString('en-US', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
@@ -181,7 +197,11 @@
       });
 
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.push({ text, time, identity: identity || newIdentity, date, done: false, notified: false });
+      tasks.push({
+        text, time, identity: identity || newIdentity,
+        date, done: false, notified: false,
+        completedDate: null
+      });
       localStorage.setItem('tasks', JSON.stringify(tasks));
 
       if (newIdentity) {
@@ -216,12 +236,25 @@
       if (!container) return;
 
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const grouped = groupTasksByDate(tasks);
+      const now = new Date();
+
+      const visibleTasks = tasks.filter(task => {
+        if (!task.done) return true;
+        if (!task.completedDate) return true;
+
+        const completed = new Date(task.completedDate);
+        const diff = Math.floor((now - completed) / (1000 * 60 * 60 * 24));
+        return showArchive ? diff >= 2 : diff < 2;
+      });
+
+      const grouped = groupTasksByDate(visibleTasks);
       const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
       container.innerHTML = dates.map(date => {
         const items = grouped[date].map((task, index) => {
-          const idx = tasks.findIndex(t => t.text === task.text && t.date === task.date && t.time === task.time);
+          const idx = tasks.findIndex(t =>
+            t.text === task.text && t.date === task.date && t.time === task.time
+          );
           return `
             <li>
               <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${idx})">
@@ -238,7 +271,9 @@
 
     function toggleTask(index) {
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks[index].done = !tasks[index].done;
+      const task = tasks[index];
+      task.done = !task.done;
+      task.completedDate = task.done ? new Date().toISOString() : null;
       localStorage.setItem('tasks', JSON.stringify(tasks));
       loadTasks();
     }
@@ -255,9 +290,7 @@
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
       const list = document.getElementById('pastTaskList');
       list.innerHTML = tasks.map(task => `
-        <li>
-          <label><input type="checkbox" value="${task.text}"> ${task.text}</label>
-        </li>
+        <li><label><input type="checkbox" value="${task.text}"> ${task.text}</label></li>
       `).join('');
       openPopup('plannerPopup');
     }
