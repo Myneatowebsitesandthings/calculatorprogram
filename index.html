@@ -2,29 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My Productivity App</title>
+  <title>Productivity App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
-      background-color: #f4f4f4;
     }
 
     nav {
       background-color: #333;
-      color: white;
-      padding: 10px 0;
+      padding: 10px;
       text-align: center;
     }
 
     nav button {
       background: none;
-      border: none;
       color: white;
       font-size: 16px;
-      margin: 0 15px;
+      border: none;
+      margin: 0 10px;
       cursor: pointer;
     }
 
@@ -37,49 +36,34 @@
       text-align: center;
     }
 
-    button.add-btn {
-      padding: 10px 20px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-
-    .calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      margin-top: 20px;
-    }
-
-    .calendar-header {
-      font-weight: bold;
-    }
-
-    .calendar-day {
-      background: white;
-      border: 1px solid #ccc;
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    .calendar-day:hover {
-      background: #eef;
-    }
-
-    .calendar-nav {
-      display: flex;
-      justify-content: space-between;
+    .popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: none;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.75);
       align-items: center;
-      margin-top: 10px;
+      justify-content: center;
+      z-index: 9999;
     }
 
-    .calendar-nav button {
-      padding: 5px 10px;
-      font-size: 16px;
+    .popup-content {
+      background: white;
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 10px;
     }
 
-    h3 {
-      margin-top: 30px;
-      text-align: left;
+    .popup-content input,
+    .popup-content select,
+    .popup-content textarea {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      box-sizing: border-box;
     }
 
     ul {
@@ -92,8 +76,40 @@
       margin-bottom: 5px;
     }
 
-    small {
-      color: gray;
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-top: 20px;
+    }
+
+    .calendar-day {
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    .calendar-nav {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .matrix-cell {
+      border: 2px solid #444;
+      padding: 10px;
+      background: white;
+    }
+
+    h3 {
+      text-align: left;
     }
   </style>
 </head>
@@ -107,21 +123,19 @@
   </nav>
 
   <div id="content">
-    <h1>Welcome to My Productivity App</h1>
-    <p>Select a section from the menu above to get started.</p>
+    <h1>Welcome</h1>
+    <p>Select a section above to get started.</p>
   </div>
 
-  <!-- Add Task Popup -->
+  <!-- Popups -->
   <div id="taskPopup" class="popup">
     <div class="popup-content">
       <h2>Add New Task</h2>
       <input type="text" id="taskInput" placeholder="Task name">
       <input type="time" id="taskTime">
-      <label for="calendarDate">Calendar Date:</label>
       <input type="date" id="calendarDate">
-      <label for="matrixCategory">Matrix Category:</label>
       <select id="matrixCategory">
-        <option value="">Select category</option>
+        <option value="">Matrix Category</option>
         <option value="urgentImportant">Urgent & Important</option>
         <option value="notUrgentImportant">Not Urgent & Important</option>
         <option value="urgentNotImportant">Urgent & Not Important</option>
@@ -131,111 +145,46 @@
         <option value="">No identity statement</option>
       </select>
       <input type="text" id="newIdentity" placeholder="New identity statement (optional)">
-      <button onclick="submitTask()">Save Task</button>
+      <button onclick="submitTask()">Save</button>
       <button onclick="closePopup('taskPopup')">Cancel</button>
     </div>
   </div>
 
-  <div id="dayTasks" style="margin-top: 20px;"></div>
+  <div id="plannerPopup" class="popup">
+    <div class="popup-content">
+      <h2>Planner</h2>
+      <ul id="pastTaskList"></ul>
+      <button onclick="applySelectedTasks()">Add to Today</button>
+      <button onclick="closePopup('plannerPopup')">Close</button>
+    </div>
+  </div>
+
+  <div id="ifThenPopup" class="popup">
+    <div class="popup-content" id="ifThenContent"></div>
+  </div>
+
+  <div id="identityPopup" class="popup">
+    <div class="popup-content" id="identityContent"></div>
+  </div>
   <script>
+    let showArchive = false;
     let currentMonth = new Date().getMonth();
     let currentYear = new Date().getFullYear();
 
     function showContent(section) {
       const content = document.getElementById('content');
 
-      if (section === 'schedule') {
-        renderCalendar(content);
+      if (section === 'schedule') return renderCalendar(content);
+      if (section === 'todo') return renderTodo(content);
+      if (section === 'matrix') return renderMatrix(content);
+      if (section === 'planner') {
+        content.innerHTML = `<h2>Planner</h2><button onclick="showPlannerPopup()">Open Daily Planner</button>`;
         return;
       }
-
-      if (section === 'todo') {
-        content.innerHTML = `
-          <h2>To-Do List</h2>
-          <button class="add-btn" onclick="openPopup('taskPopup')">Add Task</button>
-          <div id="taskListContainer"></div>
-        `;
-        loadTasks();
-        loadIdentityOptions();
+      if (section === 'settings') {
+        content.innerHTML = `<h2>Settings</h2><button onclick="toggleArchive()">Toggle Archive View</button>`;
         return;
       }
-
-      if (section === 'matrix') {
-        content.innerHTML = `
-          <h2>Eisenhower Matrix</h2>
-          <div class="matrix-grid">
-            ${renderMatrixCell('urgentImportant', 'Urgent & Important')}
-            ${renderMatrixCell('notUrgentImportant', 'Not Urgent & Important')}
-            ${renderMatrixCell('urgentNotImportant', 'Urgent & Not Important')}
-            ${renderMatrixCell('notUrgentNotImportant', 'Not Urgent & Not Important')}
-          </div>
-        `;
-        loadMatrixTasks();
-        return;
-      }
-
-      content.innerHTML = `<h2>${section.toUpperCase()}</h2><p>Section under construction.</p>`;
-    }
-
-    function renderCalendar(container) {
-      const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-      ];
-      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-
-      let html = `
-        <h2>${monthNames[currentMonth]} ${currentYear}</h2>
-        <div class="calendar-nav">
-          <button onclick="changeMonth(-1)">&#8592;</button>
-          <button onclick="changeMonth(1)">&#8594;</button>
-        </div>
-        <div class="calendar">
-          ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="calendar-header">${d}</div>`).join('')}
-      `;
-
-      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${day}</div>`;
-      }
-
-      html += `</div>`;
-      container.innerHTML = html + `<div id="dayTasks"></div>`;
-    }
-
-    function changeMonth(offset) {
-      currentMonth += offset;
-      if (currentMonth > 11) {
-        currentMonth = 0;
-        currentYear++;
-      } else if (currentMonth < 0) {
-        currentMonth = 11;
-        currentYear--;
-      }
-      showContent('schedule');
-    }
-
-    function viewDayTasks(dateStr) {
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const filtered = tasks.filter(t => t.calendarDate === dateStr);
-      const taskList = filtered.map(task => `
-        <li style="text-align:left;">
-          ${task.done ? '✅' : '⬜️'} ${task.text}
-          ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
-        </li>
-      `).join('');
-      const formattedDate = new Date(dateStr).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      document.getElementById('dayTasks').innerHTML = `
-        <h3>${formattedDate}</h3>
-        <ul>${taskList || '<p>No tasks for this day.</p>'}</ul>
-      `;
     }
 
     function openPopup(id) {
@@ -250,38 +199,30 @@
       const text = document.getElementById('taskInput').value.trim();
       const time = document.getElementById('taskTime').value;
       const calendarDate = document.getElementById('calendarDate').value;
-      const matrixCategory = document.getElementById('matrixCategory').value;
+      const matrix = document.getElementById('matrixCategory').value;
       const identity = document.getElementById('identitySelect').value;
       const newIdentity = document.getElementById('newIdentity').value.trim();
       if (!text) return;
 
       const now = new Date();
-      const createdDate = now.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
+      const date = now.toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
+
+      const task = {
+        text, time, identity: identity || newIdentity, date,
+        calendarDate, matrix, done: false, notified: false, completedDate: null, notes: ""
+      };
 
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.push({
-        text,
-        time,
-        identity: identity || newIdentity,
-        date: createdDate,
-        calendarDate,
-        matrix: matrixCategory,
-        done: false,
-        notified: false,
-        completedDate: null
-      });
+      tasks.push(task);
       localStorage.setItem('tasks', JSON.stringify(tasks));
 
-      if (matrixCategory) {
-        const matrixData = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
-        if (!matrixData[matrixCategory]) matrixData[matrixCategory] = [];
-        matrixData[matrixCategory].push(text);
-        localStorage.setItem('matrixTasks', JSON.stringify(matrixData));
+      if (matrix) {
+        const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+        if (!m[matrix]) m[matrix] = [];
+        m[matrix].push(text);
+        localStorage.setItem('matrixTasks', JSON.stringify(m));
       }
 
       if (newIdentity) {
@@ -294,49 +235,14 @@
       showContent('todo');
     }
 
-    function renderMatrixCell(id, label) {
-      return `
-        <div class="matrix-cell" id="${id}">
-          <h3>${label}</h3>
-          <ul id="${id}List"></ul>
-        </div>
+    function renderTodo(content) {
+      content.innerHTML = `
+        <h2>To-Do List</h2>
+        <button onclick="openPopup('taskPopup')">Add Task</button>
+        <div id="taskListContainer"></div>
       `;
-    }
-
-    function loadMatrixTasks() {
-      const stored = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
-      Object.keys(stored).forEach(id => {
-        const list = document.getElementById(`${id}List`);
-        if (list) {
-          list.innerHTML = stored[id].map(task => `<li>${task}</li>`).join('');
-        }
-      });
-    }
-
-    function loadTasks() {
-      const container = document.getElementById('taskListContainer');
-      if (!container) return;
-
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const grouped = tasks.reduce((acc, task) => {
-        if (!acc[task.date]) acc[task.date] = [];
-        acc[task.date].push(task);
-        return acc;
-      }, {});
-
-      const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-      container.innerHTML = dates.map(date => {
-        const items = grouped[date].map((task, index) => `
-          <li style="text-align:left;">
-            <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index})">
-            <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
-              ${task.text}
-              ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
-            </span>
-          </li>
-        `).join('');
-        return `<h3>${date}</h3><ul>${items}</ul>`;
-      }).join('');
+      loadTasks();
+      loadIdentityOptions();
     }
 
     function toggleTask(index) {
@@ -347,16 +253,164 @@
       loadTasks();
     }
 
+    function toggleArchive() {
+      showArchive = !showArchive;
+      showContent('todo');
+    }
+
+    function loadTasks() {
+      const now = new Date();
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const visible = tasks.filter(t => {
+        if (!t.done) return true;
+        if (!t.completedDate) return true;
+        const days = (now - new Date(t.completedDate)) / (1000 * 60 * 60 * 24);
+        return showArchive ? days >= 2 : days < 2;
+      });
+
+      const grouped = visible.reduce((acc, t) => {
+        if (!acc[t.date]) acc[t.date] = [];
+        acc[t.date].push(t);
+        return acc;
+      }, {});
+
+      const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+      const container = document.getElementById('taskListContainer');
+      container.innerHTML = dates.map(d => {
+        const items = grouped[d].map((t, i) => {
+          const idx = tasks.findIndex(x => x.text === t.text && x.date === t.date && x.time === t.time);
+          return `
+            <li style="text-align:left;">
+              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask(${idx})">
+              <span style="text-decoration:${t.done ? 'line-through' : 'none'};">
+                ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
+              </span>
+            </li>
+          `;
+        }).join('');
+        return `<h3>${d}</h3><ul>${items}</ul>`;
+      }).join('');
+    }
+
+    function renderMatrix(content) {
+      content.innerHTML = `
+        <h2>Eisenhower Matrix</h2>
+        <div class="matrix-grid">
+          ${renderMatrixBox('urgentImportant', 'Urgent & Important')}
+          ${renderMatrixBox('notUrgentImportant', 'Not Urgent & Important')}
+          ${renderMatrixBox('urgentNotImportant', 'Urgent & Not Important')}
+          ${renderMatrixBox('notUrgentNotImportant', 'Not Urgent & Not Important')}
+        </div>
+      `;
+      loadMatrixTasks();
+    }
+
+    function renderMatrixBox(id, label) {
+      return `<div class="matrix-cell"><h3>${label}</h3><ul id="${id}List"></ul></div>`;
+    }
+
+    function loadMatrixTasks() {
+      const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+      Object.entries(m).forEach(([key, tasks]) => {
+        const ul = document.getElementById(`${key}List`);
+        if (ul) ul.innerHTML = tasks.map(t => `<li>${t}</li>`).join('');
+      });
+    }
+
+    function renderCalendar(content) {
+      const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const monthNames = [
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+      ];
+
+      let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
+      <div class="calendar-nav">
+        <button onclick="changeMonth(-1)">←</button>
+        <button onclick="changeMonth(1)">→</button>
+      </div>
+      <div class="calendar">
+        ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div><strong>${d}</strong></div>`).join('')}
+      `;
+
+      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+      for (let d = 1; d <= days; d++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
+      }
+
+      content.innerHTML = html + `</div><div id="dayTasks"></div>`;
+    }
+
+    function changeMonth(offset) {
+      currentMonth += offset;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      showContent('schedule');
+    }
+
+    function viewDayTasks(dateStr) {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const filtered = tasks.filter(t => t.calendarDate === dateStr);
+      const display = filtered.map(t => `
+        <li style="text-align:left;" onclick="showTaskDetail('${t.text}', '${t.identity}', '${formatTime(t.time || '')}')">
+          ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
+        </li>
+      `).join('');
+      const formatted = new Date(dateStr).toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      document.getElementById('dayTasks').innerHTML = `<h3>${formatted}</h3><ul>${display}</ul>`;
+    }
+
+    function showTaskDetail(task, identity, time) {
+      document.getElementById('ifThenContent').innerHTML = `
+        <p>If it is ${time}, then I will ${task}.</p>
+        <button onclick="showIdentity('${task}', '${identity}')">OK</button>
+        <button onclick="closePopup('ifThenPopup')">Cancel</button>
+      `;
+      openPopup('ifThenPopup');
+    }
+
+    function showIdentity(task, identity) {
+      closePopup('ifThenPopup');
+      const id = identity || `I am going to ${task} because I am disciplined and deserve to complete this!`;
+      document.getElementById('identityContent').innerHTML = `
+        <p>${id}</p>
+        <textarea placeholder="Add a note..." id="taskNote"></textarea>
+        <button onclick="closePopup('identityPopup')">Close</button>
+      `;
+      openPopup('identityPopup');
+    }
+
     function loadIdentityOptions() {
       const select = document.getElementById('identitySelect');
       const ids = JSON.parse(localStorage.getItem('identities') || '[]');
       select.innerHTML = `<option value="">No identity statement</option>`;
-      ids.forEach(id => {
-        select.innerHTML += `<option value="${id}">${id}</option>`;
+      ids.forEach(id => select.innerHTML += `<option value="${id}">${id}</option>`);
+    }
+
+    function showPlannerPopup() {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const list = document.getElementById('pastTaskList');
+      list.innerHTML = tasks.map(t => `
+        <li><label><input type="checkbox" value="${t.text}"> ${t.text}</label></li>
+      `).join('');
+      openPopup('plannerPopup');
+    }
+
+    function applySelectedTasks() {
+      const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
+      checkboxes.forEach(cb => {
+        document.getElementById('taskInput').value = cb.value;
+        submitTask();
       });
+      closePopup('plannerPopup');
     }
 
     function formatTime(t) {
+      if (!t) return '';
       const [h, m] = t.split(':');
       const hour = parseInt(h);
       const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -364,8 +418,22 @@
       return `${hr}:${m} ${ampm}`;
     }
 
+    function checkIfThen() {
+      const now = new Date();
+      const tNow = now.toTimeString().slice(0,5);
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const match = tasks.find(t => t.time === tNow && !t.done && !t.notified);
+      if (!match) return;
+
+      match.notified = true;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      showTaskDetail(match.text, match.identity, formatTime(match.time));
+    }
+
     window.onload = () => {
       showContent('schedule');
+      loadIdentityOptions();
+      setInterval(checkIfThen, 60000);
     };
   </script>
 </body>
