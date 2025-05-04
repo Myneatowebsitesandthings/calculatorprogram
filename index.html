@@ -37,20 +37,44 @@
       text-align: center;
     }
 
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-top: 20px;
+    }
+
+    .calendar-header {
+      font-weight: bold;
+    }
+
+    .calendar-day {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .calendar-day:hover {
+      background: #eef;
+    }
+
+    .calendar-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .calendar-nav button {
+      padding: 5px 10px;
+      font-size: 16px;
+    }
+
     button.add-btn {
       padding: 10px 20px;
       margin-top: 10px;
       cursor: pointer;
-    }
-
-    ul {
-      list-style-type: none;
-      padding: 0;
-    }
-
-    li {
-      margin: 10px 0;
-      text-align: left;
     }
 
     .popup, #plannerPopup, #ifThenPopup, #identityPopup {
@@ -122,6 +146,8 @@
     </div>
   </div>
 
+  <!-- Part 1 ends here -->
+
   <!-- Other Popups -->
   <div id="plannerPopup" class="popup">
     <div class="popup-content">
@@ -142,10 +168,14 @@
 
   <script>
     let showArchive = false;
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
 
     function showContent(section) {
       const content = document.getElementById('content');
-      if (section === 'todo') {
+      if (section === 'schedule') {
+        renderCalendar(content);
+      } else if (section === 'todo') {
         content.innerHTML = `
           <h2>To-Do List</h2>
           <button class="add-btn" onclick="openPopup('taskPopup')">Add Task</button>
@@ -166,6 +196,69 @@
       } else {
         content.innerHTML = '<h2>' + section.toUpperCase() + '</h2><p>This is the ' + section + ' section.</p>';
       }
+    }
+
+    function renderCalendar(container) {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+
+      let html = `
+        <h2>${monthNames[currentMonth]} ${currentYear}</h2>
+        <div class="calendar-nav">
+          <button onclick="changeMonth(-1)">&#8592;</button>
+          <button onclick="changeMonth(1)">&#8594;</button>
+        </div>
+        <div class="calendar">
+          ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="calendar-header">${d}</div>`).join('')}
+      `;
+
+      for (let i = 0; i < firstDay; i++) {
+        html += `<div></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const fullDate = new Date(currentYear, currentMonth, day).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        html += `<div class="calendar-day" onclick="viewDayTasks('${fullDate}')">${day}</div>`;
+      }
+
+      html += `</div><div id="dayTasks"></div>`;
+      container.innerHTML = html;
+    }
+
+    function changeMonth(offset) {
+      currentMonth += offset;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      } else if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+      showContent('schedule');
+    }
+
+    function viewDayTasks(date) {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const filtered = tasks.filter(t => t.date === date);
+      const taskList = filtered.map(task => `
+        <li style="text-align:left;">
+          ${task.done ? '✅' : '⬜️'} ${task.text}
+          ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
+        </li>
+      `).join('');
+      document.getElementById('dayTasks').innerHTML = `
+        <h3>${date}</h3>
+        <ul>${taskList || '<p>No tasks for this day.</p>'}</ul>
+      `;
     }
 
     function toggleArchive() {
@@ -223,12 +316,12 @@
       });
     }
 
-    function groupTasksByDate(tasks) {
-      return tasks.reduce((acc, task) => {
-        if (!acc[task.date]) acc[task.date] = [];
-        acc[task.date].push(task);
-        return acc;
-      }, {});
+    function formatTime(t) {
+      const [h, m] = t.split(':');
+      const hour = parseInt(h);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hr = hour % 12 || 12;
+      return `${hr}:${m} ${ampm}`;
     }
 
     function loadTasks() {
@@ -241,13 +334,17 @@
       const visibleTasks = tasks.filter(task => {
         if (!task.done) return true;
         if (!task.completedDate) return true;
-
         const completed = new Date(task.completedDate);
         const diff = Math.floor((now - completed) / (1000 * 60 * 60 * 24));
         return showArchive ? diff >= 2 : diff < 2;
       });
 
-      const grouped = groupTasksByDate(visibleTasks);
+      const grouped = visibleTasks.reduce((acc, task) => {
+        if (!acc[task.date]) acc[task.date] = [];
+        acc[task.date].push(task);
+        return acc;
+      }, {});
+
       const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
       container.innerHTML = dates.map(date => {
@@ -276,32 +373,6 @@
       task.completedDate = task.done ? new Date().toISOString() : null;
       localStorage.setItem('tasks', JSON.stringify(tasks));
       loadTasks();
-    }
-
-    function formatTime(t) {
-      const [h, m] = t.split(':');
-      const hour = parseInt(h);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hr = hour % 12 || 12;
-      return `${hr}:${m} ${ampm}`;
-    }
-
-    function showPlannerPopup() {
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const list = document.getElementById('pastTaskList');
-      list.innerHTML = tasks.map(task => `
-        <li><label><input type="checkbox" value="${task.text}"> ${task.text}</label></li>
-      `).join('');
-      openPopup('plannerPopup');
-    }
-
-    function applySelectedTasks() {
-      const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
-      checkboxes.forEach(cb => {
-        document.getElementById('taskInput').value = cb.value;
-        submitTask();
-      });
-      closePopup('plannerPopup');
     }
 
     function checkIfThen() {
