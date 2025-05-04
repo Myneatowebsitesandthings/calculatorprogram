@@ -147,9 +147,15 @@
       const taskText = text || taskInput.value.trim();
       if (taskText === '') return;
 
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const formatted = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.push({ text: taskText, date: today, done: false });
+      tasks.push({ text: taskText, date: formatted, done: false });
       localStorage.setItem('tasks', JSON.stringify(tasks));
       if (!text) taskInput.value = '';
       loadTasks();
@@ -161,14 +167,28 @@
       taskList.innerHTML = '';
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
 
-      tasks.forEach((task, index) => {
+      const updatedTasks = tasks.map((task, index) => {
+        if (!task.date) {
+          const now = new Date();
+          const formatted = now.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+          task.date = formatted;
+        }
+        return task;
+      });
+
+      localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+
+      updatedTasks.forEach((task, index) => {
         const li = document.createElement('li');
         li.innerHTML = `
           <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index})">
           <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
-            ${task.text} <small style="color:gray;">(added ${task.date || 'today'})</small>
+            ${task.text} <small style="color:gray;">(added ${task.date})</small>
           </span>
-
         `;
         taskList.appendChild(li);
       });
