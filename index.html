@@ -37,13 +37,6 @@
       text-align: center;
     }
 
-    input[type="text"], select, input[type="time"] {
-      padding: 10px;
-      width: 60%;
-      max-width: 300px;
-      margin: 5px 0;
-    }
-
     button.add-btn {
       padding: 10px 20px;
       margin-top: 10px;
@@ -60,7 +53,7 @@
       text-align: left;
     }
 
-    #plannerPopup, #ifThenPopup, #identityPopup {
+    .popup, #plannerPopup, #ifThenPopup, #identityPopup {
       position: fixed;
       top: 0;
       left: 0;
@@ -73,13 +66,24 @@
       z-index: 1000;
     }
 
-    .popupContent {
+    .popup-content {
       background: white;
       padding: 20px;
-      width: 80%;
+      width: 90%;
       max-width: 400px;
       text-align: center;
       border-radius: 8px;
+    }
+
+    .popup-content input, .popup-content select {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+    }
+
+    h3 {
+      margin-top: 30px;
+      text-align: left;
     }
 
     small {
@@ -101,116 +105,135 @@
     <p>Select a section from the menu above to get started.</p>
   </div>
 
-  <!-- Popups -->
-  <div id="plannerPopup">
-    <div class="popupContent">
+  <!-- Add Task Popup -->
+  <div id="taskPopup" class="popup">
+    <div class="popup-content">
+      <h2>Add New Task</h2>
+      <input type="text" id="taskInput" placeholder="Task name">
+      <input type="time" id="taskTime">
+      <select id="identitySelect">
+        <option value="">No identity statement</option>
+      </select>
+      <input type="text" id="newIdentity" placeholder="New identity statement (optional)">
+      <button onclick="submitTask()">Save Task</button>
+      <button onclick="closePopup('taskPopup')">Cancel</button>
+    </div>
+  </div>
+  <!-- Other Popups -->
+  <div id="plannerPopup" class="popup">
+    <div class="popup-content">
       <h2>Daily Task Planner</h2>
-      <p>Select past tasks to add to today's To-Do List:</p>
       <ul id="pastTaskList"></ul>
       <button onclick="applySelectedTasks()">Add to Today</button>
+      <button onclick="closePopup('plannerPopup')">Close</button>
     </div>
   </div>
 
-  <div id="ifThenPopup">
-    <div class="popupContent" id="ifThenContent"></div>
+  <div id="ifThenPopup" class="popup">
+    <div class="popup-content" id="ifThenContent"></div>
   </div>
 
-  <div id="identityPopup">
-    <div class="popupContent" id="identityContent"></div>
+  <div id="identityPopup" class="popup">
+    <div class="popup-content" id="identityContent"></div>
   </div>
 
   <script>
-    const identityStatements = [
-      "I am going to [task] because I am disciplined and deserve to complete this!"
-    ];
-
     function showContent(section) {
       const content = document.getElementById('content');
       if (section === 'todo') {
         content.innerHTML = `
           <h2>To-Do List</h2>
-          <input type="text" id="taskInput" placeholder="Enter a new task"><br>
-          <input type="time" id="taskTime"><br>
-          <select id="identitySelect">
-            <option value="">No identity statement</option>
-            ${identityStatements.map((s, i) => `<option value="${s}">${s}</option>`).join('')}
-          </select><br>
-          <button class="add-btn" onclick="addTask()">Add</button>
-          <ul id="taskList"></ul>
+          <button class="add-btn" onclick="openPopup('taskPopup')">Add Task</button>
+          <div id="taskListContainer"></div>
         `;
         loadTasks();
+        loadIdentityOptions();
       } else if (section === 'planner') {
         content.innerHTML = `
           <h2>Planner Tools</h2>
-          <p>You can reopen any pop-up manually below:</p>
-          <button class="add-btn" onclick="showPlannerPopup()">Daily Planner</button>
-          <button class="add-btn" disabled>Weekly Planner (coming soon)</button>
-          <button class="add-btn" disabled>Monthly Planner (coming soon)</button>
+          <button onclick="showPlannerPopup()">Daily Planner</button>
         `;
       } else {
         content.innerHTML = '<h2>' + section.toUpperCase() + '</h2><p>This is the ' + section + ' section.</p>';
       }
     }
 
-    function addTask(text = null) {
-      const taskInput = document.getElementById('taskInput');
-      const taskTime = document.getElementById('taskTime');
-      const identitySelect = document.getElementById('identitySelect');
-      const taskText = text || taskInput.value.trim();
-      if (taskText === '') return;
+    function openPopup(id) {
+      document.getElementById(id).style.display = 'flex';
+    }
 
-      const now = new Date();
-      const formatted = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    function closePopup(id) {
+      document.getElementById(id).style.display = 'none';
+    }
 
-      tasks.push({
-        text: taskText,
-        date: formatted,
-        time: taskTime.value,
-        identity: identitySelect.value,
-        done: false
+    function submitTask() {
+      const text = document.getElementById('taskInput').value.trim();
+      const time = document.getElementById('taskTime').value;
+      const identity = document.getElementById('identitySelect').value;
+      const newIdentity = document.getElementById('newIdentity').value.trim();
+      if (!text) return;
+
+      const date = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
       });
 
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      tasks.push({ text, time, identity: identity || newIdentity, date, done: false, notified: false });
       localStorage.setItem('tasks', JSON.stringify(tasks));
-      if (!text) {
-        taskInput.value = '';
-        taskTime.value = '';
-        identitySelect.value = '';
+
+      if (newIdentity) {
+        const ids = JSON.parse(localStorage.getItem('identities') || '[]');
+        ids.push(newIdentity);
+        localStorage.setItem('identities', JSON.stringify([...new Set(ids)]));
       }
-      loadTasks();
+
+      closePopup('taskPopup');
+      showContent('todo');
+    }
+
+    function loadIdentityOptions() {
+      const select = document.getElementById('identitySelect');
+      const ids = JSON.parse(localStorage.getItem('identities') || '[]');
+      select.innerHTML = `<option value="">No identity statement</option>`;
+      ids.forEach(id => {
+        select.innerHTML += `<option value="${id}">${id}</option>`;
+      });
+    }
+
+    function groupTasksByDate(tasks) {
+      return tasks.reduce((acc, task) => {
+        if (!acc[task.date]) acc[task.date] = [];
+        acc[task.date].push(task);
+        return acc;
+      }, {});
     }
 
     function loadTasks() {
-      const taskList = document.getElementById('taskList');
-      if (!taskList) return;
+      const container = document.getElementById('taskListContainer');
+      if (!container) return;
 
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const grouped = groupTasksByDate(tasks);
+      const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
-      // Fill in missing dates for old tasks
-      const updatedTasks = tasks.map(task => {
-        if (!task.date) {
-          const now = new Date();
-          task.date = now.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          });
-        }
-        return task;
-      });
-      localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-
-      taskList.innerHTML = '';
-      updatedTasks.forEach((task, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index})">
-          <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
-            ${task.text} <small>(added ${task.date}${task.time ? ', at ' + formatTime(task.time) : ''})</small>
-          </span>
-        `;
-        taskList.appendChild(li);
-      });
+      container.innerHTML = dates.map(date => {
+        const items = grouped[date].map((task, index) => {
+          const idx = tasks.findIndex(t => t.text === task.text && t.date === task.date && t.time === task.time);
+          return `
+            <li>
+              <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${idx})">
+              <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
+                ${task.text}
+                ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
+              </span>
+            </li>
+          `;
+        }).join('');
+        return `<h3>${date}</h3><ul>${items}</ul>`;
+      }).join('');
     }
 
     function toggleTask(index) {
@@ -220,83 +243,74 @@
       loadTasks();
     }
 
+    function formatTime(t) {
+      const [h, m] = t.split(':');
+      const hour = parseInt(h);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hr = hour % 12 || 12;
+      return `${hr}:${m} ${ampm}`;
+    }
+
     function showPlannerPopup() {
-      const pastTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
       const list = document.getElementById('pastTaskList');
-      list.innerHTML = '';
-
-      pastTasks.forEach(task => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <label>
-            <input type="checkbox" value="${task.text}"> ${task.text}
-          </label>
-        `;
-        list.appendChild(li);
-      });
-
-      document.getElementById('plannerPopup').style.display = 'flex';
+      list.innerHTML = tasks.map(task => `
+        <li>
+          <label><input type="checkbox" value="${task.text}"> ${task.text}</label>
+        </li>
+      `).join('');
+      openPopup('plannerPopup');
     }
 
     function applySelectedTasks() {
-      const checkboxes = document.querySelectorAll('#pastTaskList input[type="checkbox"]:checked');
+      const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
       checkboxes.forEach(cb => {
-        addTask(cb.value);
+        document.getElementById('taskInput').value = cb.value;
+        submitTask();
       });
-      document.getElementById('plannerPopup').style.display = 'none';
-    }
-
-    function formatTime(timeStr) {
-      const [hour, minute] = timeStr.split(':');
-      const h = parseInt(hour);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const hr = h % 12 || 12;
-      return `${hr}:${minute} ${ampm}`;
+      closePopup('plannerPopup');
     }
 
     function checkIfThen() {
-      const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
-
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const task = tasks.find(t => t.time === currentTime && !t.done && !t.notified);
+      const now = new Date();
+      const timeNow = now.toTimeString().slice(0, 5);
 
-      if (task) {
-        task.notified = true;
-        localStorage.setItem('tasks', JSON.stringify(tasks));
+      const due = tasks.find(t => t.time === timeNow && !t.done && !t.notified);
+      if (!due) return;
 
-        const ifThen = `If it is ${formatTime(task.time)}, then I will ${task.text}.`;
-        document.getElementById('ifThenContent').innerHTML = `
-          <p>${ifThen}</p>
-          <button onclick="confirmIfThen('${task.text}', '${task.identity.replace(/\[task\]/g, task.text)}')">OK</button>
-          <button onclick="closePopup('ifThenPopup')">Skip</button>
-        `;
-        document.getElementById('ifThenPopup').style.display = 'flex';
-      }
+      due.notified = true;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+
+      const message = `If it is ${formatTime(due.time)}, then I will ${due.text}.`;
+      const identity = due.identity ? due.identity.replace('[task]', due.text) : '';
+
+      document.getElementById('ifThenContent').innerHTML = `
+        <p>${message}</p>
+        <button onclick="showIdentity('${identity}')">OK</button>
+        <button onclick="closePopup('ifThenPopup')">Skip</button>
+      `;
+      openPopup('ifThenPopup');
     }
 
-    function confirmIfThen(taskText, identityMessage) {
-      document.getElementById('ifThenPopup').style.display = 'none';
+    function showIdentity(msg) {
+      closePopup('ifThenPopup');
+      if (!msg) return;
       document.getElementById('identityContent').innerHTML = `
-        <p>${identityMessage}</p>
+        <p>${msg}</p>
         <button onclick="closePopup('identityPopup')">Close</button>
       `;
-      document.getElementById('identityPopup').style.display = 'flex';
+      openPopup('identityPopup');
     }
 
-    function closePopup(id) {
-      document.getElementById(id).style.display = 'none';
-    }
-
-    // Load and check timers
     window.onload = function () {
-      const lastShownDate = localStorage.getItem('lastPlannerShown');
+      const last = localStorage.getItem('lastPlannerShown');
       const today = new Date().toISOString().split('T')[0];
-      if (lastShownDate !== today) {
+      if (last !== today) {
         showPlannerPopup();
         localStorage.setItem('lastPlannerShown', today);
       }
-      setInterval(checkIfThen, 60000); // Check every minute
+      setInterval(checkIfThen, 60000);
     };
   </script>
 </body>
