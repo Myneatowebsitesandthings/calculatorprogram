@@ -37,40 +37,6 @@
       text-align: center;
     }
 
-    .calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      margin-top: 20px;
-    }
-
-    .calendar-header {
-      font-weight: bold;
-    }
-
-    .calendar-day {
-      background: white;
-      border: 1px solid #ccc;
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    .calendar-day:hover {
-      background: #eef;
-    }
-
-    .calendar-nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 10px;
-    }
-
-    .calendar-nav button {
-      padding: 5px 10px;
-      font-size: 16px;
-    }
-
     button.add-btn {
       padding: 10px 20px;
       margin-top: 10px;
@@ -115,6 +81,87 @@
     small {
       color: gray;
     }
+
+    /* Calendar Styles */
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-top: 20px;
+    }
+
+    .calendar-header {
+      font-weight: bold;
+    }
+
+    .calendar-day {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .calendar-day:hover {
+      background: #eef;
+    }
+
+    .calendar-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .calendar-nav button {
+      padding: 5px 10px;
+      font-size: 16px;
+    }
+
+    /* Matrix Styles */
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .matrix-cell {
+      background: white;
+      border: 2px solid #333;
+      padding: 10px;
+      min-height: 150px;
+      box-sizing: border-box;
+    }
+
+    .matrix-cell h3 {
+      margin-top: 0;
+      font-size: 16px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+
+    .matrix-cell input {
+      width: 90%;
+      padding: 5px;
+      margin-top: 5px;
+    }
+
+    .matrix-cell button {
+      padding: 5px 10px;
+      margin-top: 5px;
+    }
+
+    .matrix-cell ul {
+      list-style-type: none;
+      padding-left: 0;
+      margin-top: 10px;
+    }
+
+    .matrix-cell li {
+      text-align: left;
+      margin-bottom: 5px;
+    }
   </style>
 </head>
 <body>
@@ -146,8 +193,6 @@
     </div>
   </div>
 
-  <!-- Part 1 ends here -->
-
   <!-- Other Popups -->
   <div id="plannerPopup" class="popup">
     <div class="popup-content">
@@ -165,7 +210,6 @@
   <div id="identityPopup" class="popup">
     <div class="popup-content" id="identityContent"></div>
   </div>
-
   <script>
     let showArchive = false;
     let currentMonth = new Date().getMonth();
@@ -173,9 +217,10 @@
 
     function showContent(section) {
       const content = document.getElementById('content');
-      if (section === 'schedule') {
-        renderCalendar(content);
-      } else if (section === 'todo') {
+
+      if (section === 'schedule') return renderCalendar(content);
+      if (section === 'matrix') return renderMatrix(content);
+      if (section === 'todo') {
         content.innerHTML = `
           <h2>To-Do List</h2>
           <button class="add-btn" onclick="openPopup('taskPopup')">Add Task</button>
@@ -183,21 +228,74 @@
         `;
         loadTasks();
         loadIdentityOptions();
-      } else if (section === 'planner') {
+        return;
+      }
+      if (section === 'planner') {
         content.innerHTML = `
           <h2>Planner Tools</h2>
           <button onclick="showPlannerPopup()">Daily Planner</button>
         `;
-      } else if (section === 'settings') {
+        return;
+      }
+      if (section === 'settings') {
         content.innerHTML = `
           <h2>Settings</h2>
           <button onclick="toggleArchive()">View ${showArchive ? 'Active Tasks' : 'Archive'}</button>
         `;
-      } else {
-        content.innerHTML = '<h2>' + section.toUpperCase() + '</h2><p>This is the ' + section + ' section.</p>';
+        return;
       }
+
+      content.innerHTML = '<h2>Coming Soon</h2>';
     }
 
+    // MATRIX SECTION
+    function renderMatrix(content) {
+      content.innerHTML = `
+        <h2>Eisenhower Matrix</h2>
+        <div class="matrix-grid">
+          ${renderMatrixCell('urgentImportant', 'Urgent & Important')}
+          ${renderMatrixCell('notUrgentImportant', 'Not Urgent & Important')}
+          ${renderMatrixCell('urgentNotImportant', 'Urgent & Not Important')}
+          ${renderMatrixCell('notUrgentNotImportant', 'Not Urgent & Not Important')}
+        </div>
+      `;
+      loadMatrixTasks();
+    }
+
+    function renderMatrixCell(id, label) {
+      return `
+        <div class="matrix-cell" id="${id}">
+          <h3>${label}</h3>
+          <input type="text" id="${id}Input" placeholder="New task">
+          <button onclick="addMatrixTask('${id}')">Add</button>
+          <ul id="${id}List"></ul>
+        </div>
+      `;
+    }
+
+    function addMatrixTask(id) {
+      const input = document.getElementById(`${id}Input`);
+      const value = input.value.trim();
+      if (!value) return;
+      const stored = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+      if (!stored[id]) stored[id] = [];
+      stored[id].push(value);
+      localStorage.setItem('matrixTasks', JSON.stringify(stored));
+      input.value = '';
+      loadMatrixTasks();
+    }
+
+    function loadMatrixTasks() {
+      const stored = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+      Object.keys(stored).forEach(id => {
+        const list = document.getElementById(`${id}List`);
+        if (list) {
+          list.innerHTML = stored[id].map(task => `<li>${task}</li>`).join('');
+        }
+      });
+    }
+
+    // CALENDAR SECTION
     function renderCalendar(container) {
       const monthNames = [
         "January", "February", "March", "April", "May", "June",
@@ -216,10 +314,7 @@
           ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="calendar-header">${d}</div>`).join('')}
       `;
 
-      for (let i = 0; i < firstDay; i++) {
-        html += `<div></div>`;
-      }
-
+      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
       for (let day = 1; day <= daysInMonth; day++) {
         const fullDate = new Date(currentYear, currentMonth, day).toLocaleDateString('en-US', {
           weekday: 'long',
@@ -261,11 +356,7 @@
       `;
     }
 
-    function toggleArchive() {
-      showArchive = !showArchive;
-      showContent('todo');
-    }
-
+    // GENERAL TASK SYSTEM
     function openPopup(id) {
       document.getElementById(id).style.display = 'flex';
     }
@@ -324,6 +415,11 @@
       return `${hr}:${m} ${ampm}`;
     }
 
+    function toggleArchive() {
+      showArchive = !showArchive;
+      showContent('todo');
+    }
+
     function loadTasks() {
       const container = document.getElementById('taskListContainer');
       if (!container) return;
@@ -373,6 +469,24 @@
       task.completedDate = task.done ? new Date().toISOString() : null;
       localStorage.setItem('tasks', JSON.stringify(tasks));
       loadTasks();
+    }
+
+    function showPlannerPopup() {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const list = document.getElementById('pastTaskList');
+      list.innerHTML = tasks.map(task => `
+        <li><label><input type="checkbox" value="${task.text}"> ${task.text}</label></li>
+      `).join('');
+      openPopup('plannerPopup');
+    }
+
+    function applySelectedTasks() {
+      const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
+      checkboxes.forEach(cb => {
+        document.getElementById('taskInput').value = cb.value;
+        submitTask();
+      });
+      closePopup('plannerPopup');
     }
 
     function checkIfThen() {
