@@ -129,6 +129,14 @@
           <ul id="taskList"></ul>
         `;
         loadTasks();
+      } else if (section === 'planner') {
+        content.innerHTML = `
+          <h2>Planner Tools</h2>
+          <p>You can reopen any pop-up manually below:</p>
+          <button class="add-btn" onclick="showPlannerPopup()">Daily Planner</button>
+          <button class="add-btn" disabled>Weekly Planner (coming soon)</button>
+          <button class="add-btn" disabled>Monthly Planner (coming soon)</button>
+        `;
       } else {
         content.innerHTML = '<h2>' + section.toUpperCase() + '</h2><p>This is the ' + section + ' section.</p>';
       }
@@ -139,8 +147,9 @@
       const taskText = text || taskInput.value.trim();
       if (taskText === '') return;
 
+      const today = new Date().toISOString().split('T')[0];
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.push({ text: taskText, done: false });
+      tasks.push({ text: taskText, date: today, done: false });
       localStorage.setItem('tasks', JSON.stringify(tasks));
       if (!text) taskInput.value = '';
       loadTasks();
@@ -156,7 +165,9 @@
         const li = document.createElement('li');
         li.innerHTML = `
           <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index})">
-          <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">${task.text}</span>
+          <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
+            ${task.text} <small style="color:gray;">(added ${task.date})</small>
+          </span>
         `;
         taskList.appendChild(li);
       });
