@@ -7,35 +7,31 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
+      background-color: #f4f4f4;
     }
-
     nav {
       background-color: #333;
-      padding: 10px;
+      color: white;
+      padding: 10px 0;
       text-align: center;
     }
-
     nav button {
       background: none;
+      border: none;
       color: white;
       font-size: 16px;
-      border: none;
-      margin: 0 10px;
+      margin: 0 15px;
       cursor: pointer;
     }
-
     nav button:hover {
       text-decoration: underline;
     }
-
     #content {
       padding: 20px;
       text-align: center;
     }
-
     .popup {
       position: fixed;
       top: 0;
@@ -48,7 +44,6 @@
       justify-content: center;
       z-index: 9999;
     }
-
     .popup-content {
       background: white;
       padding: 20px;
@@ -56,7 +51,6 @@
       max-width: 400px;
       border-radius: 10px;
     }
-
     .popup-content input,
     .popup-content select,
     .popup-content textarea {
@@ -65,49 +59,41 @@
       margin: 8px 0;
       box-sizing: border-box;
     }
-
     ul {
       padding-left: 0;
     }
-
     ul li {
       list-style-type: none;
       text-align: left;
       margin-bottom: 5px;
     }
-
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 5px;
       margin-top: 20px;
     }
-
     .calendar-day {
       background: white;
       padding: 10px;
       border: 1px solid #ccc;
       cursor: pointer;
     }
-
     .calendar-nav {
       display: flex;
       justify-content: space-between;
       margin-bottom: 10px;
     }
-
     .matrix-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-
     .matrix-cell {
       border: 2px solid #444;
       padding: 10px;
       background: white;
     }
-
     h3 {
       text-align: left;
     }
@@ -164,277 +150,296 @@
   </div>
 
   <div id="identityPopup" class="popup">
-    <div class="popup-content" id="identityContent"></div>
+    <div class="popup-content">
+      <div id="identityContent"></div>
+      <textarea id="taskNote" placeholder="Add a note..."></textarea>
+      <button onclick="saveNote()">Save Note</button>
+      <button onclick="closePopup('identityPopup')">Close</button>
+    </div>
   </div>
-  <script>
-    let showArchive = false;
-    let currentMonth = new Date().getMonth();
-    let currentYear = new Date().getFullYear();
+<script>
+  let showArchive = false;
+  let currentMonth = new Date().getMonth();
+  let currentYear = new Date().getFullYear();
+  let currentTaskKey = null;
 
-    function showContent(section) {
-      const content = document.getElementById('content');
-
-      if (section === 'schedule') return renderCalendar(content);
-      if (section === 'todo') return renderTodo(content);
-      if (section === 'matrix') return renderMatrix(content);
-      if (section === 'planner') {
-        content.innerHTML = `<h2>Planner</h2><button onclick="showPlannerPopup()">Open Daily Planner</button>`;
-        return;
-      }
-      if (section === 'settings') {
-        content.innerHTML = `<h2>Settings</h2><button onclick="toggleArchive()">Toggle Archive View</button>`;
-        return;
-      }
+  function showContent(section) {
+    const content = document.getElementById('content');
+    if (section === 'schedule') return renderCalendar(content);
+    if (section === 'todo') return renderTodo(content);
+    if (section === 'matrix') return renderMatrix(content);
+    if (section === 'planner') {
+      content.innerHTML = `<h2>Planner</h2><button onclick="showPlannerPopup()">Open Daily Planner</button>`;
+      return;
     }
-
-    function openPopup(id) {
-      document.getElementById(id).style.display = 'flex';
+    if (section === 'settings') {
+      content.innerHTML = `<h2>Settings</h2><button onclick="toggleArchive()">Toggle Archive View</button>`;
+      return;
     }
+  }
 
-    function closePopup(id) {
-      document.getElementById(id).style.display = 'none';
-    }
+  function openPopup(id) {
+    document.getElementById(id).style.display = 'flex';
+  }
 
-    function submitTask() {
-      const text = document.getElementById('taskInput').value.trim();
-      const time = document.getElementById('taskTime').value;
-      const calendarDate = document.getElementById('calendarDate').value;
-      const matrix = document.getElementById('matrixCategory').value;
-      const identity = document.getElementById('identitySelect').value;
-      const newIdentity = document.getElementById('newIdentity').value.trim();
-      if (!text) return;
+  function closePopup(id) {
+    document.getElementById(id).style.display = 'none';
+  }
 
-      const now = new Date();
-      const date = now.toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-      });
+  function submitTask() {
+    const text = document.getElementById('taskInput').value.trim();
+    const time = document.getElementById('taskTime').value;
+    const calendarDate = document.getElementById('calendarDate').value;
+    const matrix = document.getElementById('matrixCategory').value;
+    const identity = document.getElementById('identitySelect').value;
+    const newIdentity = document.getElementById('newIdentity').value.trim();
+    if (!text) return;
 
-      const task = {
-        text, time, identity: identity || newIdentity, date,
-        calendarDate, matrix, done: false, notified: false, completedDate: null, notes: ""
-      };
+    const now = new Date();
+    const date = now.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
 
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.push(task);
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-
-      if (matrix) {
-        const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
-        if (!m[matrix]) m[matrix] = [];
-        m[matrix].push(text);
-        localStorage.setItem('matrixTasks', JSON.stringify(m));
-      }
-
-      if (newIdentity) {
-        const ids = JSON.parse(localStorage.getItem('identities') || '[]');
-        ids.push(newIdentity);
-        localStorage.setItem('identities', JSON.stringify([...new Set(ids)]));
-      }
-
-      closePopup('taskPopup');
-      showContent('todo');
-    }
-
-    function renderTodo(content) {
-      content.innerHTML = `
-        <h2>To-Do List</h2>
-        <button onclick="openPopup('taskPopup')">Add Task</button>
-        <div id="taskListContainer"></div>
-      `;
-      loadTasks();
-      loadIdentityOptions();
-    }
-
-    function toggleTask(index) {
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks[index].done = !tasks[index].done;
-      tasks[index].completedDate = tasks[index].done ? new Date().toISOString() : null;
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-      loadTasks();
-    }
-
-    function toggleArchive() {
-      showArchive = !showArchive;
-      showContent('todo');
-    }
-
-    function loadTasks() {
-      const now = new Date();
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const visible = tasks.filter(t => {
-        if (!t.done) return true;
-        if (!t.completedDate) return true;
-        const days = (now - new Date(t.completedDate)) / (1000 * 60 * 60 * 24);
-        return showArchive ? days >= 2 : days < 2;
-      });
-
-      const grouped = visible.reduce((acc, t) => {
-        if (!acc[t.date]) acc[t.date] = [];
-        acc[t.date].push(t);
-        return acc;
-      }, {});
-
-      const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-      const container = document.getElementById('taskListContainer');
-      container.innerHTML = dates.map(d => {
-        const items = grouped[d].map((t, i) => {
-          const idx = tasks.findIndex(x => x.text === t.text && x.date === t.date && x.time === t.time);
-          return `
-            <li style="text-align:left;">
-              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask(${idx})">
-              <span style="text-decoration:${t.done ? 'line-through' : 'none'};">
-                ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
-              </span>
-            </li>
-          `;
-        }).join('');
-        return `<h3>${d}</h3><ul>${items}</ul>`;
-      }).join('');
-    }
-
-    function renderMatrix(content) {
-      content.innerHTML = `
-        <h2>Eisenhower Matrix</h2>
-        <div class="matrix-grid">
-          ${renderMatrixBox('urgentImportant', 'Urgent & Important')}
-          ${renderMatrixBox('notUrgentImportant', 'Not Urgent & Important')}
-          ${renderMatrixBox('urgentNotImportant', 'Urgent & Not Important')}
-          ${renderMatrixBox('notUrgentNotImportant', 'Not Urgent & Not Important')}
-        </div>
-      `;
-      loadMatrixTasks();
-    }
-
-    function renderMatrixBox(id, label) {
-      return `<div class="matrix-cell"><h3>${label}</h3><ul id="${id}List"></ul></div>`;
-    }
-
-    function loadMatrixTasks() {
-      const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
-      Object.entries(m).forEach(([key, tasks]) => {
-        const ul = document.getElementById(`${key}List`);
-        if (ul) ul.innerHTML = tasks.map(t => `<li>${t}</li>`).join('');
-      });
-    }
-
-    function renderCalendar(content) {
-      const days = new Date(currentYear, currentMonth + 1, 0).getDate();
-      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-      const monthNames = [
-        "January","February","March","April","May","June",
-        "July","August","September","October","November","December"
-      ];
-
-      let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
-      <div class="calendar-nav">
-        <button onclick="changeMonth(-1)">←</button>
-        <button onclick="changeMonth(1)">→</button>
-      </div>
-      <div class="calendar">
-        ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div><strong>${d}</strong></div>`).join('')}
-      `;
-
-      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
-      for (let d = 1; d <= days; d++) {
-        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
-      }
-
-      content.innerHTML = html + `</div><div id="dayTasks"></div>`;
-    }
-
-    function changeMonth(offset) {
-      currentMonth += offset;
-      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-      showContent('schedule');
-    }
-
-    function viewDayTasks(dateStr) {
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const filtered = tasks.filter(t => t.calendarDate === dateStr);
-      const display = filtered.map(t => `
-        <li style="text-align:left;" onclick="showTaskDetail('${t.text}', '${t.identity}', '${formatTime(t.time || '')}')">
-          ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
-        </li>
-      `).join('');
-      const formatted = new Date(dateStr).toLocaleDateString('en-US', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-      document.getElementById('dayTasks').innerHTML = `<h3>${formatted}</h3><ul>${display}</ul>`;
-    }
-
-    function showTaskDetail(task, identity, time) {
-      document.getElementById('ifThenContent').innerHTML = `
-        <p>If it is ${time}, then I will ${task}.</p>
-        <button onclick="showIdentity('${task}', '${identity}')">OK</button>
-        <button onclick="closePopup('ifThenPopup')">Cancel</button>
-      `;
-      openPopup('ifThenPopup');
-    }
-
-    function showIdentity(task, identity) {
-      closePopup('ifThenPopup');
-      const id = identity || `I am going to ${task} because I am disciplined and deserve to complete this!`;
-      document.getElementById('identityContent').innerHTML = `
-        <p>${id}</p>
-        <textarea placeholder="Add a note..." id="taskNote"></textarea>
-        <button onclick="closePopup('identityPopup')">Close</button>
-      `;
-      openPopup('identityPopup');
-    }
-
-    function loadIdentityOptions() {
-      const select = document.getElementById('identitySelect');
-      const ids = JSON.parse(localStorage.getItem('identities') || '[]');
-      select.innerHTML = `<option value="">No identity statement</option>`;
-      ids.forEach(id => select.innerHTML += `<option value="${id}">${id}</option>`);
-    }
-
-    function showPlannerPopup() {
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const list = document.getElementById('pastTaskList');
-      list.innerHTML = tasks.map(t => `
-        <li><label><input type="checkbox" value="${t.text}"> ${t.text}</label></li>
-      `).join('');
-      openPopup('plannerPopup');
-    }
-
-    function applySelectedTasks() {
-      const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
-      checkboxes.forEach(cb => {
-        document.getElementById('taskInput').value = cb.value;
-        submitTask();
-      });
-      closePopup('plannerPopup');
-    }
-
-    function formatTime(t) {
-      if (!t) return '';
-      const [h, m] = t.split(':');
-      const hour = parseInt(h);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hr = hour % 12 || 12;
-      return `${hr}:${m} ${ampm}`;
-    }
-
-    function checkIfThen() {
-      const now = new Date();
-      const tNow = now.toTimeString().slice(0,5);
-      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const match = tasks.find(t => t.time === tNow && !t.done && !t.notified);
-      if (!match) return;
-
-      match.notified = true;
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-      showTaskDetail(match.text, match.identity, formatTime(match.time));
-    }
-
-    window.onload = () => {
-      showContent('schedule');
-      loadIdentityOptions();
-      setInterval(checkIfThen, 60000);
+    const task = {
+      text, time, identity: identity || newIdentity, date,
+      calendarDate, matrix, done: false, notified: false, completedDate: null, notes: ""
     };
-  </script>
+
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    tasks.push(task);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+
+    if (matrix) {
+      const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+      if (!m[matrix]) m[matrix] = [];
+      m[matrix].push(text);
+      localStorage.setItem('matrixTasks', JSON.stringify(m));
+    }
+
+    if (newIdentity) {
+      const ids = JSON.parse(localStorage.getItem('identities') || '[]');
+      ids.push(newIdentity);
+      localStorage.setItem('identities', JSON.stringify([...new Set(ids)]));
+    }
+
+    closePopup('taskPopup');
+    showContent('todo');
+  }
+
+  function renderTodo(content) {
+    content.innerHTML = `
+      <h2>To-Do List</h2>
+      <button onclick="openPopup('taskPopup')">Add Task</button>
+      <div id="taskListContainer"></div>
+    `;
+    loadTasks();
+    loadIdentityOptions();
+  }
+
+  function loadTasks() {
+    const now = new Date();
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const visible = tasks.filter(t => {
+      if (!t.done) return true;
+      if (!t.completedDate) return true;
+      const days = (now - new Date(t.completedDate)) / (1000 * 60 * 60 * 24);
+      return showArchive ? days >= 2 : days < 2;
+    });
+
+    const grouped = visible.reduce((acc, t) => {
+      if (!acc[t.date]) acc[t.date] = [];
+      acc[t.date].push(t);
+      return acc;
+    }, {});
+
+    const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+    const container = document.getElementById('taskListContainer');
+    container.innerHTML = dates.map(d => {
+      const items = grouped[d].map((t, i) => {
+        const idx = tasks.findIndex(x => x.text === t.text && x.date === t.date && x.time === t.time);
+        return `
+          <li style="text-align:left;">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask(${idx})">
+            <span style="text-decoration:${t.done ? 'line-through' : 'none'};">
+              ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
+            </span>
+          </li>
+        `;
+      }).join('');
+      return `<h3>${d}</h3><ul>${items}</ul>`;
+    }).join('');
+  }
+
+  function toggleTask(index) {
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    tasks[index].done = !tasks[index].done;
+    tasks[index].completedDate = tasks[index].done ? new Date().toISOString() : null;
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    loadTasks();
+  }
+
+  function renderMatrix(content) {
+    content.innerHTML = `
+      <h2>Eisenhower Matrix</h2>
+      <div class="matrix-grid">
+        ${renderMatrixBox('urgentImportant', 'Urgent & Important')}
+        ${renderMatrixBox('notUrgentImportant', 'Not Urgent & Important')}
+        ${renderMatrixBox('urgentNotImportant', 'Urgent & Not Important')}
+        ${renderMatrixBox('notUrgentNotImportant', 'Not Urgent & Not Important')}
+      </div>
+    `;
+    loadMatrixTasks();
+  }
+
+  function renderMatrixBox(id, label) {
+    return `<div class="matrix-cell"><h3>${label}</h3><ul id="${id}List"></ul></div>`;
+  }
+
+  function loadMatrixTasks() {
+    const m = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+    Object.entries(m).forEach(([key, tasks]) => {
+      const ul = document.getElementById(`${key}List`);
+      if (ul) ul.innerHTML = tasks.map(t => `<li>${t}</li>`).join('');
+    });
+  }
+
+  function renderCalendar(content) {
+    const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const monthNames = [
+      "January","February","March","April","May","June",
+      "July","August","September","October","November","December"
+    ];
+
+    let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
+    <div class="calendar-nav">
+      <button onclick="changeMonth(-1)">←</button>
+      <button onclick="changeMonth(1)">→</button>
+    </div>
+    <div class="calendar">
+      ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div><strong>${d}</strong></div>`).join('')}
+    `;
+
+    for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+    for (let d = 1; d <= days; d++) {
+      const dateStr = new Date(currentYear, currentMonth, d).toISOString().slice(0, 10);
+      html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
+    }
+
+    content.innerHTML = html + `</div><div id="dayTasks"></div>`;
+  }
+
+  function changeMonth(offset) {
+    currentMonth += offset;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    showContent('schedule');
+  }
+
+  function viewDayTasks(dateStr) {
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const filtered = tasks.filter(t => t.calendarDate === dateStr);
+    const display = filtered.map((t, i) => {
+      const key = `${t.text}|${t.calendarDate}|${t.time || ""}`;
+      return `<li style="text-align:left;" onclick="showTaskDetail('${key}')">
+        ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
+      </li>`;
+    }).join('');
+    const formatted = new Date(dateStr).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    document.getElementById('dayTasks').innerHTML = `<h3>${formatted}</h3><ul>${display || '<li>No tasks</li>'}</ul>`;
+  }
+
+  function showTaskDetail(key) {
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const task = tasks.find(t => `${t.text}|${t.calendarDate}|${t.time || ""}` === key);
+    if (!task) return;
+
+    currentTaskKey = key;
+    document.getElementById('ifThenContent').innerHTML = `
+      <p>If it is ${formatTime(task.time)}, then I will ${task.text}.</p>
+      <button onclick="showIdentity('${task.text}', \`${task.identity || ''}\`)">OK</button>
+      <button onclick="closePopup('ifThenPopup')">Cancel</button>
+    `;
+    openPopup('ifThenPopup');
+  }
+
+  function showIdentity(task, identity) {
+    closePopup('ifThenPopup');
+    const id = identity || `I am going to ${task} because I am disciplined and deserve to complete this!`;
+    document.getElementById('identityContent').innerHTML = `<p>${id}</p>`;
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const t = tasks.find(t => `${t.text}|${t.calendarDate}|${t.time || ""}` === currentTaskKey);
+    document.getElementById('taskNote').value = t && t.notes ? t.notes : "";
+    openPopup('identityPopup');
+  }
+
+  function saveNote() {
+    const note = document.getElementById('taskNote').value.trim();
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const t = tasks.find(t => `${t.text}|${t.calendarDate}|${t.time || ""}` === currentTaskKey);
+    if (t) {
+      t.notes = note;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+    closePopup('identityPopup');
+  }
+
+  function formatTime(t) {
+    if (!t) return '';
+    const [h, m] = t.split(':');
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hr = hour % 12 || 12;
+    return `${hr}:${m} ${ampm}`;
+  }
+
+  function showPlannerPopup() {
+    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    const list = document.getElementById('pastTaskList');
+    list.innerHTML = tasks.map(t => `
+      <li><label><input type="checkbox" value="${t.text}"> ${t.text}</label></li>
+    `).join('');
+    openPopup('plannerPopup');
+  }
+
+  function applySelectedTasks() {
+    const checkboxes = document.querySelectorAll('#pastTaskList input:checked');
+    checkboxes.forEach(cb => {
+      document.getElementById('taskInput').value = cb.value;
+      submitTask();
+    });
+    closePopup('plannerPopup');
+  }
+
+  function loadIdentityOptions() {
+    const select = document.getElementById('identitySelect');
+    const ids = JSON.parse(localStorage.getItem('identities') || '[]');
+    select.innerHTML = `<option value="">No identity statement</option>`;
+    ids.forEach(id => select.innerHTML += `<option value="${id}">${id}</option>`);
+  }
+
+  function toggleArchive() {
+    showArchive = !showArchive;
+    showContent('todo');
+  }
+
+  window.onload = () => {
+    showContent('schedule');
+    loadIdentityOptions();
+    setInterval(() => {
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5);
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const match = tasks.find(t => t.time === currentTime && !t.done && !t.notified);
+      if (match) {
+        match.notified = true;
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        showTaskDetail(`${match.text}|${match.calendarDate}|${match.time || ""}`);
+      }
+    }, 60000);
+  };
+</script>
 </body>
 </html>
