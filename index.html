@@ -303,31 +303,32 @@
     });
   }
 
-  function renderCalendar(content) {
-    const days = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const monthNames = [
-      "January","February","March","April","May","June",
-      "July","August","September","October","November","December"
-    ];
+function renderCalendar(content) {
+  const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
 
-    let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
-    <div class="calendar-nav">
-      <button onclick="changeMonth(-1)">←</button>
-      <button onclick="changeMonth(1)">→</button>
-    </div>
-    <div class="calendar">
-      ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div><strong>${d}</strong></div>`).join('')}
-    `;
+  let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
+  <div class="calendar-nav">
+    <button onclick="changeMonth(-1)">←</button>
+    <button onclick="changeMonth(1)">→</button>
+  </div>
+  <div class="calendar">
+    ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div><strong>${d}</strong></div>`).join('')}
+  `;
 
-    for (let i = 0; i < firstDay; i++) html += `<div></div>`;
-    for (let d = 1; d <= days; d++) {
-      const dateStr = new Date(currentYear, currentMonth, d).toISOString().slice(0, 10);
-      html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
-    }
-
-    content.innerHTML = html + `</div><div id="dayTasks"></div>`;
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+  for (let d = 1; d <= days; d++) {
+    const localDate = new Date(currentYear, currentMonth, d);
+    const dateStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+    html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
   }
+
+  content.innerHTML = html + `</div><div id="dayTasks"></div>`;
+}
 
   function changeMonth(offset) {
     currentMonth += offset;
