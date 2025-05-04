@@ -99,6 +99,7 @@
   <script>
     function showContent(section) {
       const content = document.getElementById('content');
+
       if (section === 'matrix') {
         content.innerHTML = `
           <h2>Eisenhower Matrix</h2>
@@ -110,7 +111,28 @@
           </div>
         `;
         loadMatrixTasks();
+        return;
       }
+
+      if (section === 'todo') {
+        content.innerHTML = `
+          <h2>To-Do List</h2>
+          <button class="add-btn" onclick="alert('Use the updated planner/calendar to add tasks.')">Add Task</button>
+          <div id="taskListContainer"></div>
+        `;
+        loadTasks();
+        return;
+      }
+
+      if (section === 'settings') {
+        content.innerHTML = `
+          <h2>Settings</h2>
+          <button onclick="alert('No additional settings implemented yet.')">More coming soon...</button>
+        `;
+        return;
+      }
+
+      content.innerHTML = `<h2>${section.toUpperCase()}</h2><p>Section under construction.</p>`;
     }
 
     function renderMatrixCell(id, label) {
@@ -140,10 +162,15 @@
       const stored = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
       Object.keys(stored).forEach(id => {
         const list = document.getElementById(`${id}List`);
-        if (!list) return;
-        list.innerHTML = stored[id].map(task => `<li>${task}</li>`).join('');
+        if (list) {
+          list.innerHTML = stored[id].map(task => `<li>${task}</li>`).join('');
+        }
       });
     }
+
+    window.onload = () => {
+      showContent('todo');
+    };
   </script>
 </body>
 </html>
