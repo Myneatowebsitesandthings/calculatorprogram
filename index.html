@@ -189,7 +189,9 @@
   function submitTask() {
     const text = document.getElementById('taskInput').value.trim();
     const time = document.getElementById('taskTime').value;
-    const calendarDate = document.getElementById('calendarDate').value;
+    const rawDate = document.getElementById('calendarDate').value;
+    const dateParts = rawDate.split('-'); // yyyy-mm-dd
+    const calendarDate = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`; // mm/dd/yyyy
     const matrix = document.getElementById('matrixCategory').value;
     const identity = document.getElementById('identitySelect').value;
     const newIdentity = document.getElementById('newIdentity').value.trim();
@@ -306,10 +308,7 @@
 function renderCalendar(content) {
   const days = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  const monthNames = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
-  ];
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
   let html = `<h2>${monthNames[currentMonth]} ${currentYear}</h2>
   <div class="calendar-nav">
@@ -323,7 +322,10 @@ function renderCalendar(content) {
   for (let i = 0; i < firstDay; i++) html += `<div></div>`;
   for (let d = 1; d <= days; d++) {
     const localDate = new Date(currentYear, currentMonth, d);
-    const dateStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+    const yyyy = localDate.getFullYear();
+    const mm = String(localDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(localDate.getDate()).padStart(2, '0');
+    const dateStr = `${mm}/${dd}/${yyyy}`; // LOCAL format for storage & matching
     html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${d}</div>`;
   }
 
@@ -337,20 +339,17 @@ function renderCalendar(content) {
     showContent('schedule');
   }
 
-  function viewDayTasks(dateStr) {
-    const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-    const filtered = tasks.filter(t => t.calendarDate === dateStr);
-    const display = filtered.map((t, i) => {
-      const key = `${t.text}|${t.calendarDate}|${t.time || ""}`;
-      return `<li style="text-align:left;" onclick="showTaskDetail('${key}')">
-        ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
-      </li>`;
-    }).join('');
-    const formatted = new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-    document.getElementById('dayTasks').innerHTML = `<h3>${formatted}</h3><ul>${display || '<li>No tasks</li>'}</ul>`;
-  }
+function viewDayTasks(dateStr) {
+  const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+  const filtered = tasks.filter(t => t.calendarDate === dateStr);
+  const display = filtered.map(t => {
+    const key = `${t.text}|${t.calendarDate}|${t.time || ""}`;
+    return `<li style="text-align:left;" onclick="showTaskDetail('${key}')">
+      ${t.text} ${t.time ? `<small>at ${formatTime(t.time)}</small>` : ''}
+    </li>`;
+  }).join('');
+  document.getElementById('dayTasks').innerHTML = `<h3>${dateStr}</h3><ul>${display || '<li>No tasks</li>'}</ul>`;
+}
 
   function showTaskDetail(key) {
     const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
