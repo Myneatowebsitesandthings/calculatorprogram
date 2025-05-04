@@ -43,55 +43,6 @@
       cursor: pointer;
     }
 
-    .popup, #plannerPopup, #ifThenPopup, #identityPopup {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.75);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .popup-content {
-      background: white;
-      padding: 20px;
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
-      border-radius: 8px;
-    }
-
-    .popup-content input,
-    .popup-content select {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      box-sizing: border-box;
-    }
-
-    h3 {
-      margin-top: 30px;
-      text-align: left;
-    }
-
-    ul {
-      padding-left: 0;
-    }
-
-    ul li {
-      list-style-type: none;
-      text-align: left;
-      margin-bottom: 5px;
-    }
-
-    small {
-      color: gray;
-    }
-
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -126,38 +77,23 @@
       font-size: 16px;
     }
 
-    .matrix-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto;
-      gap: 10px;
-      margin-top: 20px;
+    h3 {
+      margin-top: 30px;
+      text-align: left;
     }
 
-    .matrix-cell {
-      background: white;
-      border: 2px solid #333;
-      padding: 10px;
-      min-height: 150px;
-      box-sizing: border-box;
-    }
-
-    .matrix-cell h3 {
-      margin-top: 0;
-      font-size: 16px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 5px;
-    }
-
-    .matrix-cell ul {
-      list-style-type: none;
+    ul {
       padding-left: 0;
-      margin-top: 10px;
     }
 
-    .matrix-cell li {
+    ul li {
+      list-style-type: none;
       text-align: left;
       margin-bottom: 5px;
+    }
+
+    small {
+      color: gray;
     }
   </style>
 </head>
@@ -199,23 +135,17 @@
       <button onclick="closePopup('taskPopup')">Cancel</button>
     </div>
   </div>
+
+  <div id="dayTasks" style="margin-top: 20px;"></div>
   <script>
-    let showArchive = false;
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
 
     function showContent(section) {
       const content = document.getElementById('content');
 
-      if (section === 'matrix') {
-        content.innerHTML = `
-          <h2>Eisenhower Matrix</h2>
-          <div class="matrix-grid">
-            ${renderMatrixBox('urgentImportant', 'Urgent & Important')}
-            ${renderMatrixBox('notUrgentImportant', 'Not Urgent & Important')}
-            ${renderMatrixBox('urgentNotImportant', 'Urgent & Not Important')}
-            ${renderMatrixBox('notUrgentNotImportant', 'Not Urgent & Not Important')}
-          </div>
-        `;
-        loadMatrixTasks();
+      if (section === 'schedule') {
+        renderCalendar(content);
         return;
       }
 
@@ -230,7 +160,82 @@
         return;
       }
 
-      content.innerHTML = '<h2>Coming Soon</h2>';
+      if (section === 'matrix') {
+        content.innerHTML = `
+          <h2>Eisenhower Matrix</h2>
+          <div class="matrix-grid">
+            ${renderMatrixCell('urgentImportant', 'Urgent & Important')}
+            ${renderMatrixCell('notUrgentImportant', 'Not Urgent & Important')}
+            ${renderMatrixCell('urgentNotImportant', 'Urgent & Not Important')}
+            ${renderMatrixCell('notUrgentNotImportant', 'Not Urgent & Not Important')}
+          </div>
+        `;
+        loadMatrixTasks();
+        return;
+      }
+
+      content.innerHTML = `<h2>${section.toUpperCase()}</h2><p>Section under construction.</p>`;
+    }
+
+    function renderCalendar(container) {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+
+      let html = `
+        <h2>${monthNames[currentMonth]} ${currentYear}</h2>
+        <div class="calendar-nav">
+          <button onclick="changeMonth(-1)">&#8592;</button>
+          <button onclick="changeMonth(1)">&#8594;</button>
+        </div>
+        <div class="calendar">
+          ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="calendar-header">${d}</div>`).join('')}
+      `;
+
+      for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        html += `<div class="calendar-day" onclick="viewDayTasks('${dateStr}')">${day}</div>`;
+      }
+
+      html += `</div>`;
+      container.innerHTML = html + `<div id="dayTasks"></div>`;
+    }
+
+    function changeMonth(offset) {
+      currentMonth += offset;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      } else if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+      showContent('schedule');
+    }
+
+    function viewDayTasks(dateStr) {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const filtered = tasks.filter(t => t.calendarDate === dateStr);
+      const taskList = filtered.map(task => `
+        <li style="text-align:left;">
+          ${task.done ? '✅' : '⬜️'} ${task.text}
+          ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
+        </li>
+      `).join('');
+      const formattedDate = new Date(dateStr).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      document.getElementById('dayTasks').innerHTML = `
+        <h3>${formattedDate}</h3>
+        <ul>${taskList || '<p>No tasks for this day.</p>'}</ul>
+      `;
     }
 
     function openPopup(id) {
@@ -289,16 +294,7 @@
       showContent('todo');
     }
 
-    function loadIdentityOptions() {
-      const select = document.getElementById('identitySelect');
-      const ids = JSON.parse(localStorage.getItem('identities') || '[]');
-      select.innerHTML = `<option value="">No identity statement</option>`;
-      ids.forEach(id => {
-        select.innerHTML += `<option value="${id}">${id}</option>`;
-      });
-    }
-
-    function renderMatrixBox(id, label) {
+    function renderMatrixCell(id, label) {
       return `
         <div class="matrix-cell" id="${id}">
           <h3>${label}</h3>
@@ -308,11 +304,11 @@
     }
 
     function loadMatrixTasks() {
-      const matrixData = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
-      Object.entries(matrixData).forEach(([key, tasks]) => {
-        const list = document.getElementById(`${key}List`);
+      const stored = JSON.parse(localStorage.getItem('matrixTasks') || '{}');
+      Object.keys(stored).forEach(id => {
+        const list = document.getElementById(`${id}List`);
         if (list) {
-          list.innerHTML = tasks.map(task => `<li>${task}</li>`).join('');
+          list.innerHTML = stored[id].map(task => `<li>${task}</li>`).join('');
         }
       });
     }
@@ -322,50 +318,42 @@
       if (!container) return;
 
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const now = new Date();
-
-      const visibleTasks = tasks.filter(task => {
-        if (!task.done) return true;
-        if (!task.completedDate) return true;
-        const completed = new Date(task.completedDate);
-        const diff = Math.floor((now - completed) / (1000 * 60 * 60 * 24));
-        return showArchive ? diff >= 2 : diff < 2;
-      });
-
-      const grouped = visibleTasks.reduce((acc, task) => {
+      const grouped = tasks.reduce((acc, task) => {
         if (!acc[task.date]) acc[task.date] = [];
         acc[task.date].push(task);
         return acc;
       }, {});
 
       const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
       container.innerHTML = dates.map(date => {
-        const items = grouped[date].map((task, index) => {
-          const idx = tasks.findIndex(t =>
-            t.text === task.text && t.date === task.date && t.time === task.time
-          );
-          return `
-            <li style="text-align:left;">
-              <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${idx})">
-              <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
-                ${task.text}
-                ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
-              </span>
-            </li>
-          `;
-        }).join('');
+        const items = grouped[date].map((task, index) => `
+          <li style="text-align:left;">
+            <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${index})">
+            <span style="text-decoration: ${task.done ? 'line-through' : 'none'};">
+              ${task.text}
+              ${task.time ? `<small> at ${formatTime(task.time)}</small>` : ''}
+            </span>
+          </li>
+        `).join('');
         return `<h3>${date}</h3><ul>${items}</ul>`;
       }).join('');
     }
 
     function toggleTask(index) {
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const task = tasks[index];
-      task.done = !task.done;
-      task.completedDate = task.done ? new Date().toISOString() : null;
+      tasks[index].done = !tasks[index].done;
+      tasks[index].completedDate = tasks[index].done ? new Date().toISOString() : null;
       localStorage.setItem('tasks', JSON.stringify(tasks));
       loadTasks();
+    }
+
+    function loadIdentityOptions() {
+      const select = document.getElementById('identitySelect');
+      const ids = JSON.parse(localStorage.getItem('identities') || '[]');
+      select.innerHTML = `<option value="">No identity statement</option>`;
+      ids.forEach(id => {
+        select.innerHTML += `<option value="${id}">${id}</option>`;
+      });
     }
 
     function formatTime(t) {
@@ -377,7 +365,7 @@
     }
 
     window.onload = () => {
-      showContent('todo');
+      showContent('schedule');
     };
   </script>
 </body>
